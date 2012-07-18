@@ -37,23 +37,22 @@ Strip Order:
 
 long_comment > short_comment > html_comment > twig_block > twig_var > text > attr > id > class > tag > brace
 */
+
+$template = preg_replace("/\/\/.*?(?=\n)|\/\*([^*]|[\r\n])*\*\//", '', $template); //remove all template comments, and uneccessary code (;)
+
+$tag = '[a-zA-Z0-9]+';
+$class = '((\.-?[_a-zA-Z]+[_a-zA-Z0-9-]*)*';
+$id = '(\#-?[_a-zA-Z]+[_a-zA-Z0-9-]*)*';
+$attribute = '(\[.*?\])*';
+$content = '(\(\".*?\"\))*)*';
+
+$selectorRegex = "$tag$class$id$attribute$content";
+
 $twigBlock = "{%.*?%}";
 $htmlComment = "<!--.*?-->";
 $nestingGrammar = "[>{}]";
 
-$regexes = array (
-	'twig_block'=>"{%.*?%}",
-	'html_comment'=>"<!--.*?-->",
-	'text'	=>	"\([\"\'].*?[\'\"]\)",
-	'attr'	=>	"\[.*?\]",
-	'id'	=>	"#.*?(?=[\.#\[\{\>\ ])",
-	'class'	=>	"\..*?(?=[\.#\[\{\>\ ])",
-	'tag'	=>	"[a-z0-9]+"
-);
-
-$selectorRegex = '[a-zA-Z0-9]+((\.-?[_a-zA-Z]+[_a-zA-Z0-9-]*)*(\#-?[_a-zA-Z]+[_a-zA-Z0-9-]*)*(\[.*?\])*(\(".*?"\))*)*';
-
-$template = preg_replace("/\/\/.*?(?=\n)|\/\*([^*]|[\r\n])*\*\//", '', $template); //remove all template comments, and uneccessary code (;)
+$finalRegex = "/($twigBlock)|($htmlComment)|($selectorRegex)|($nestingGrammar)/s";
 
 echo "<h1>Comments stripped</h1>";
 echo nl2br($template);
@@ -64,7 +63,7 @@ echo nl2br($template);
 	<h2>Split</h2>
 <?
 
-$finalRegex = "/($twigBlock)|($htmlComment)|($selectorRegex)|($nestingGrammar)/s";
+
 
 echo "final regex: ".htmlspecialchars($finalRegex);
 
@@ -74,32 +73,58 @@ preg_match_all($finalRegex, $template, $matches);
 
 dump($matches);
 
+$regexBlocks = array(
+				1=>'twig_block',
+				2=>'html_comment',
+				3=>'selector',
+				9=>'nesting_grammar'
+				);
+				
 /*
-
-preg_match_all("/[^\n\t ].*[^;\{]/", $template, $lineMatches); //match each line
-
-$lines = array();
-
-foreach($lineMatches[0] as $lineNum => &$line){ //foreach line
-
-
-	$lineComponents = array('_line'=>$line);
-	foreach($regexes as $name=>$regex){
-		
-		$line = preg_replace_callback("/$regex/", function($match) use($name, &$lineComponents, &$test){
-			$lineComponents[$name][] = $match[0];
-			return '';
-		}, $line);
-	}
-	$lineComponents['~end_line'] = $line;
-	
-	$lines[] = $lineComponents;
-
-}
-
-dump($lines);
+$selectorRegexes = array (
+	'text'	=>	"\([\"\'].*?[\'\"]\)",
+	'attr'	=>	"\[.*?\]",
+	'id'	=>	"#.*?(?=[\.#\[$])",
+	'class'	=>	"\..*?(?=[\.#\[$])",
+	'tag'	=>	"[a-z0-9]+"
+);
 */
 
+$selectorRegexes = array (
+	'content'	=>	"\([\"\'].*?[\'\"]\)",
+	'attr'	=>	"\[.*?\]",
+	'id'	=>	"#.*?(?![a-zA-Z0-9_-])",
+	'class'	=>	"\..*?(?![a-zA-Z0-9_-])",
+	'tag'	=>	"[a-z0-9]+"
+);
+
+foreach($matches[0] as $key => $match){
+	foreach($regexBlocks as $i=>$instruction){
+		if (strlen($matches[$i][$key])>0){
+			if($i==3){ //selector
+				$selectorArray = array(); //initialise and unset
+				$line = $match;
+				
+/* 				$selectorArray['_line'] = $line; */
+				foreach($selectorRegexes as $name=>$regex){
+					$line = preg_replace_callback("/$regex/", function($match) use($name, &$selectorArray){
+						$selectorArray[$name][] = $match[0];
+						return '';
+					}, $line);
+				}
+				
+/* 				$selectorArray['~end_line'] = $line; */
+				
+				$instructions[][$instruction] = $selectorArray;
+				
+			}else{
+				$instructions[][$instruction] = $match;
+			}
+		}
+	}
+}
+
+dump($instructions);
 
 
 
