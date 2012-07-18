@@ -10,10 +10,10 @@ html{
 /*First comment*/
 	h2("Log in");
 	form#login {
-		input[name="username", type="text"][value="{{current_user}}"]; //tag values in brackets comma separated or chained
+		input[name="username" type="text"][value="{{current_user}}"]; //tag values in brackets comma separated or chained
 		br;
 		input[type="password"].password;
-		span.info[data-tooltip="This will not be saved"]>span.icon>img[src="/images/info_icon.png"];
+		span.info[data-tooltip="This will not be saved"]>span.icon.info_icon>img[src="/images/info_icon.png"];
 		input[type="submit"];
 	}
 	script[type="text/javascript"]("

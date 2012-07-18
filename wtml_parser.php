@@ -6,18 +6,25 @@ function dump($arr){
 ?>
 	<pre>
 <?
-	print_r($arr);
+	echo htmlspecialchars(print_r($arr, true));
+	
 ?>
 	</pre>
 <?
 }
 
+function printElapsed($clock){
+	$elapsed = (microtime(true)-$clock)/1000;
+	echo "time elapsed is ".$elapsed."ms <br />";
+}
 
+$clock = microtime(true);
 
 $filename = 'index.wtml';
 $templateHandle = fopen($filename, 'r');
 $template = fread($templateHandle, filesize($filename));
 
+printElapsed($clock);
 
 /*Matches*/
 /*
@@ -71,7 +78,9 @@ preg_match_all($finalRegex, $template, $matches);
 
 /* $matches = preg_split("/($selectorRegex)/s", $template, null, PREG_SPLIT_DELIM_CAPTURE|PREG_SPLIT_NO_EMPTY); */
 
-dump($matches);
+printElapsed($clock);
+
+
 
 $regexBlocks = array(
 				1=>'twig_block',
@@ -91,11 +100,11 @@ $selectorRegexes = array (
 */
 
 $selectorRegexes = array (
-	'content'	=>	"\([\"\'].*?[\'\"]\)",
-	'attr'	=>	"\[.*?\]",
-	'id'	=>	"#.*?(?![a-zA-Z0-9_-])",
-	'class'	=>	"\..*?(?![a-zA-Z0-9_-])",
-	'tag'	=>	"[a-z0-9]+"
+	'content'	=>	"/\(\".*?\"\)/s",
+	'attr'	=>	"/\[.*?\]/",
+	'id'	=>	"/#.*?(?![a-zA-Z0-9_-])/",
+	'class'	=>	"/\..*?(?![a-zA-Z0-9_-])/",
+	'tag'	=>	"/[a-z0-9]+/"
 );
 
 foreach($matches[0] as $key => $match){
@@ -107,7 +116,7 @@ foreach($matches[0] as $key => $match){
 				
 /* 				$selectorArray['_line'] = $line; */
 				foreach($selectorRegexes as $name=>$regex){
-					$line = preg_replace_callback("/$regex/", function($match) use($name, &$selectorArray){
+					$line = preg_replace_callback("$regex", function($match) use($name, &$selectorArray){
 						$selectorArray[$name][] = $match[0];
 						return '';
 					}, $line);
@@ -124,7 +133,68 @@ foreach($matches[0] as $key => $match){
 	}
 }
 
+dump($matches);
 dump($instructions);
+
+$tagBuffer = array();
+$htmlArray = array();
+
+foreach($instructions as $key => $instructionArray){
+	
+	$instruction = key($instructionArray);
+/* 	echo "instruction is: ".$instruction; */
+/* 	dump($instructionArray); */
+
+	switch($instruction){
+		case 'selector':
+		{
+			if (count($tagBuffer)>0){
+				$closureTag = array_pop($tagBuffer);
+				$htmlArray[] = "</".$closureTag.">";
+			}
+			
+			$tagComponents = array();
+			
+			$tagComponents[] = $instructionArray['selector']['tag'][0];
+			if (isset($instructionArray['selector']['id']))		$tagComponents[] = 'id="'.str_replace('#', '', $instructionArray['selector']['id'][0]).'"';
+			if (isset($instructionArray['selector']['class']))	$tagComponents[] = 'class="'.str_replace('.', '', implode(' ', $instructionArray['selector']['class'])).'"';
+			if (isset($instructionArray['selector']['attr']))	$tagComponents[] = str_replace(array('[',']'), '', implode(' ', $instructionArray['selector']['attr']));
+			
+			$openingTag = "<".implode(' ', $tagComponents).">";
+			$htmlArray[] = $openingTag;
+			
+			if (isset($instructionArray['selector']['content']))	$htmlArray[] = preg_replace("/^\(\"|\"\)$/", '', $instructionArray['selector']['content'][0]);
+			
+			$tagBuffer[] = $instructionArray['selector']['tag'][0];
+		}
+		break;
+		case 'twig_block':
+		{
+			$htmlArray[] = $instructionArray['twig_block'];
+			echo "twig block added:";
+		}
+		break;
+		case 'html_comment':
+		{
+			$htmlArray[] = $instructionArray['html_comment'];
+			echo "html comment added:";
+		}
+		break;
+		case 'nesting_grammar':
+		{
+			
+		}
+		break;
+	}
+}
+
+printElapsed($clock);
+
+
+dump($htmlArray);
+
+
+echo htmlspecialchars(implode('', $htmlArray));
 
 
 
