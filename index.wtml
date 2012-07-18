@@ -1,0 +1,35 @@
+<!--this comment will be included in html-->
+
+html{
+	h1("Awesome website"); //tag content in parenthesis
+	ul#navigation { //braces determine heirarchy
+		{% for item in navigation %}
+		li.button>a.internal_link[href="{{item.href}}"]("{{item.title}}"); //nesting can be chained with ">" child operator
+		{% endfor %}
+	}
+/*First comment*/
+	h2("Log in");
+	form#login {
+		input[name="username", type="text"][value="{{current_user}}"]; //tag values in brackets comma separated or chained
+		br;
+		input[type="password"].password;
+		span.info[data-tooltip="This will not be saved"]>span.icon>img[src="/images/info_icon.png"];
+		input[type="submit"];
+	}
+	script[type="text/javascript"]("
+		$(function(){
+			$('form#login').css('background-color', 'red');
+		});
+	");
+	footer {
+		p("Posted by {{author}}");
+		p("<em>All rights reserved</em> {{copy_date}}"); //display markup as standard html acceptable
+	}
+/*
+	Long commment style
+*/
+}
+
+test {
+	parent>child("content");
+}
