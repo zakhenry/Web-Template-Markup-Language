@@ -1,5 +1,5 @@
 <!--this comment will be included in html-->
-
+/* <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"> */
 html{
 	h1("Awesome website"); //tag content in parenthesis
 	ul#navigation { //braces determine heirarchy
@@ -30,6 +30,5 @@ html{
 */
 }
 
-test {
-	parent>child("content");
-}
+test>nesting>without>any>distractions;
+out>of>the>loop

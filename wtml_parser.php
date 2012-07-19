@@ -1,3 +1,4 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <?php
 error_reporting(E_ALL);
 ini_set('display_errors', 'On');
@@ -24,7 +25,7 @@ $filename = 'index.wtml';
 $templateHandle = fopen($filename, 'r');
 $template = fread($templateHandle, filesize($filename));
 
-printElapsed($clock);
+/* printElapsed($clock); */
 
 /*Matches*/
 /*
@@ -57,28 +58,30 @@ $selectorRegex = "$tag$class$id$attribute$content";
 
 $twigBlock = "{%.*?%}";
 $htmlComment = "<!--.*?-->";
-$nestingGrammar = "[>{}]";
+$nestingGrammar = "[{>}]";
 
 $finalRegex = "/($twigBlock)|($htmlComment)|($selectorRegex)|($nestingGrammar)/s";
 
-echo "<h1>Comments stripped</h1>";
-echo nl2br($template);
+/* echo "<h1>Comments stripped</h1>"; */
+/* echo nl2br($template); */
 
 
 
+/*
 ?>
 	<h2>Split</h2>
 <?
+*/
 
 
-
-echo "final regex: ".htmlspecialchars($finalRegex);
+/* echo "selector regex: ".htmlspecialchars($selectorRegex); */
+/* echo "final regex: ".htmlspecialchars($finalRegex); */
 
 preg_match_all($finalRegex, $template, $matches);
 
 /* $matches = preg_split("/($selectorRegex)/s", $template, null, PREG_SPLIT_DELIM_CAPTURE|PREG_SPLIT_NO_EMPTY); */
 
-printElapsed($clock);
+/* printElapsed($clock); */
 
 
 
@@ -133,68 +136,121 @@ foreach($matches[0] as $key => $match){
 	}
 }
 
-dump($matches);
-dump($instructions);
+/* dump($matches); */
+/* dump($instructions); */
 
 $tagBuffer = array();
 $htmlArray = array();
 
+$selfClosingElements = array('area','base', 'br', 'col', 'command', 'embed', 'hr', 'img', 'input', 'keygen', 'link', 'meta', 'param', 'source', 'track', 'wbr');
+
+function addItem($item, &$offset, &$array){
+	array_splice($array, $offset, 0, str_repeat("\t", count($array)-$offset).$item."\n");
+	$offset++; //increment to point after item
+}
+
+$insertOffset = 0;
+$offsetArray = array();
+
 foreach($instructions as $key => $instructionArray){
+	
+	$offsetArray[] = $insertOffset;
 	
 	$instruction = key($instructionArray);
 /* 	echo "instruction is: ".$instruction; */
 /* 	dump($instructionArray); */
 
+	
+
 	switch($instruction){
 		case 'selector':
 		{
-			if (count($tagBuffer)>0){
-				$closureTag = array_pop($tagBuffer);
-				$htmlArray[] = "</".$closureTag.">";
-			}
-			
+		
 			$tagComponents = array();
-			
-			$tagComponents[] = $instructionArray['selector']['tag'][0];
+			$htmlTag = $instructionArray['selector']['tag'][0];
+			$tagComponents[] = $htmlTag;
 			if (isset($instructionArray['selector']['id']))		$tagComponents[] = 'id="'.str_replace('#', '', $instructionArray['selector']['id'][0]).'"';
 			if (isset($instructionArray['selector']['class']))	$tagComponents[] = 'class="'.str_replace('.', '', implode(' ', $instructionArray['selector']['class'])).'"';
 			if (isset($instructionArray['selector']['attr']))	$tagComponents[] = str_replace(array('[',']'), '', implode(' ', $instructionArray['selector']['attr']));
+			$selfClosing = in_array($htmlTag, $selfClosingElements);
+			if ($selfClosing)	$tagComponents[] = "/";
 			
 			$openingTag = "<".implode(' ', $tagComponents).">";
-			$htmlArray[] = $openingTag;
+/* 			$htmlArray[] = $openingTag; */
+/* 			addItem($openingTag, $insertOffset, $htmlArray); */
 			
-			if (isset($instructionArray['selector']['content']))	$htmlArray[] = preg_replace("/^\(\"|\"\)$/", '', $instructionArray['selector']['content'][0]);
+/* 			if (isset($instructionArray['selector']['content']))	$htmlArray[] = preg_replace("/^\(\"|\"\)$/", '', $instructionArray['selector']['content'][0]); */
+			$tagContent = '';
+			if (isset($instructionArray['selector']['content']))	$tagContent = preg_replace("/^\(\"|\"\)$/", '', $instructionArray['selector']['content'][0]);
+/* 			$htmlArray[] = $instructionArray['selector']['tag'][0]; */
+		
+			addItem($openingTag.$tagContent, $insertOffset, $htmlArray);
+		
+			if (!$selfClosing)	addItem("</".$htmlTag.">", $insertOffset, $htmlArray); //if item needs a closure
 			
-			$tagBuffer[] = $instructionArray['selector']['tag'][0];
 		}
 		break;
 		case 'twig_block':
 		{
-			$htmlArray[] = $instructionArray['twig_block'];
-			echo "twig block added:";
+			addItem($instructionArray['twig_block'], $insertOffset, $htmlArray);
+/* 			echo "twig block added:"; */
 		}
 		break;
 		case 'html_comment':
 		{
-			$htmlArray[] = $instructionArray['html_comment'];
-			echo "html comment added:";
+			addItem($instructionArray['html_comment'], $insertOffset, $htmlArray);
+/* 			echo "html comment added:"; */
 		}
 		break;
 		case 'nesting_grammar':
 		{
+/* 			$htmlArray[] = $instructionArray['nesting_grammar'][0]; */
 			
+			switch($instructionArray['nesting_grammar'][0]){
+				case '{':
+					$insertOffset--; //child entered, inserting before previous closure
+				break;
+				case '}':
+					$insertOffset++; //child exited, jump in front of parent closure		
+				break;
+				case '>': //havent worked out how to deal with you yet
+					$insertOffset--; //jump in a level
+					if (!isset($childDepth))	$childDepth = 0;
+					$childDepth++;
+				break; 
+			}
 		}
 		break;
 	}
+	
+	if (isset($childDepth)){
+		if (($instruction=='nesting_grammar' && $instructionArray['nesting_grammar']=='>')||($instruction=='selector' && isset($instructions[$key+1]['nesting_grammar']) && $instructions[$key+1]['nesting_grammar'] == '>')){ //look ahead
+/* 			echo "insert offset is"; */
+/* 			echo "CHILD SELECTOR:"; */
+/* 			dump($instructions[$key]); */
+
+		}else{
+			$insertOffset += $childDepth;
+			$offsetArray[] = "($childDepth) added to offset";
+			
+			unset($childDepth);
+			
+/* 			echo "child unset on :"; */
+/* 			dump($instructions[$key]); */
+		}
+	}
 }
 
-printElapsed($clock);
+/* printElapsed($clock); */
 
 
-dump($htmlArray);
+/* dump($htmlArray); */
+/* dump($offsetArray); */
 
 
-echo htmlspecialchars(implode('', $htmlArray));
+/* echo htmlspecialchars(implode('', $htmlArray)); */
+
+echo implode('', $htmlArray);
 
 
 
